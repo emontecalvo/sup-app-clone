@@ -15,6 +15,8 @@ var should = chai.should();
 
 chai.use(chaiHttp);
 
+mongoose.Promise = global.Promise;
+
 describe('Message endpoints', function() {
     var server;
     beforeEach(function(done) {

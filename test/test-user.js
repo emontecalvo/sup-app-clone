@@ -14,6 +14,8 @@ var should = chai.should();
 
 chai.use(chaiHttp);
 
+mongoose.Promise = global.Promise;
+
 describe('User endpoints', function() {
     beforeEach(function(done) {
         // Clear the database
