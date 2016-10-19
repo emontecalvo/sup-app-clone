@@ -6,8 +6,8 @@ var app = express();
 
 var jsonParser = bodyParser.json();
 
-var Message = require('./models/message')
-var User = require('./models/user')
+var Message = require('./models/message');
+var User = require('./models/user');
 
 // Add your API endpoints here
 var runServer = function(callback) {
@@ -52,19 +52,19 @@ app.post('/messages', jsonParser, function(req, res) {
     if (req.body.text === undefined) {
         return res.status(422).json({
             message: "Missing field: text"
-        })
+        });
     } else if (typeof req.body.text !== 'string') {
         return res.status(422).json({
             message: "Incorrect field type: text"
-        })
+        });
     } else if (typeof req.body.to !== 'string') {
         return res.status(422).json({
            message: "Incorrect field type: to"
-        })
+        });
     } else if (typeof req.body.from !== 'string') {
         return res.status(422).json({
             message: "Incorrect field type: from"
-        })
+        });
     }
     
     User.find({_id: req.body.from}, function(err, user){
@@ -72,12 +72,12 @@ app.post('/messages', jsonParser, function(req, res) {
             if (user.length === 0) {
                 return res.status(422).json({
                     message: "Incorrect field value: from"
-                })
+                });
             }
             if (user2.length === 0) {
                 return res.status(422).json({
                     message: "Incorrect field value: to"
-                })
+                });
             }
             Message.create({text: req.body.text, from: req.body.from, to: req.body.to}, function(err, message) {
                 if (err) {
@@ -86,10 +86,10 @@ app.post('/messages', jsonParser, function(req, res) {
                 });
             } 
             res.location('/messages/' + message._id);
-            res.status(201).json({})
+            res.status(201).json({});
             });
-        })
-    })
+        });
+    });
 });
 
 app.get('/messages/:messageId', function(req, res) {
@@ -175,7 +175,7 @@ app.put('/users/:userId', jsonParser, function(req, res) {
                     message: 'Server Error'
                 });
             }
-            res.status(200).json({})
+            res.status(200).json({});
         });
     } else {
         res.status(422).json({
