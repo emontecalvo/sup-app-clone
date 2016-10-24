@@ -4,7 +4,7 @@
   "description": "A messaging API",
   "main": "index.js",
   "directories": {
-    "test": "tests"
+    "test": "test"
   },
   "scripts": {
     "test": "mocha --no-colors"
@@ -21,8 +21,19 @@
     "url-pattern": "^1.0.1"
   },
   "dependencies": {
-    "body-parser": "^1.15.0",
-    "express": "^4.13.4",
-    "mongoose": "^4.4.13"
-  }
+    "bcryptjs": "^2.3.0",
+    "body-parser": "^1.15.2",
+    "express": "^4.14.0",
+    "mongoose": "^4.6.5",
+    "passport": "^0.3.2",
+    "passport-http": "^0.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/phc5/sup-template.git"
+  },
+  "bugs": {
+    "url": "https://github.com/phc5/sup-template/issues"
+  },
+  "homepage": "https://github.com/phc5/sup-template#readme"
 }
