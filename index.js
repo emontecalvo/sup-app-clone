@@ -14,14 +14,17 @@ var User = require('./models/user');
 
 var state = {
     loggedIn: false,
-    userId: ""
+    userId: "",
+    username: ""
 };
 
 // Add your API endpoints here
 var runServer = function(callback) {
     var databaseUri = process.env.DATABASE_URI || global.databaseUri || 'mongodb://localhost/auth';
+    mongoose.Promise = global.Promise;
     mongoose.connect(databaseUri).then(function() {
         var port = process.env.PORT || 8080;
+        //var port = process.env.PORT || 3000;
         var server = app.listen(port, function() {
             console.log('Listening on localhost:' + port);
             if (callback) {
@@ -46,6 +49,7 @@ var strategy = new BasicStrategy(function(username, password, callback) {
             });
         }
         state.userId = user._id.toString();
+        state.username = user.username;
         user.validatePassword(password, function(err, isValid) {
             if (err) {
                 return callback(err);
@@ -87,7 +91,7 @@ app.get('/hidden', passport.authenticate('basic', {session: false}), function(re
 // })
 
 //Messages API
-app.get('/messages', jsonParser,function(req, res) {
+app.get('/messages', jsonParser, passport.authenticate('basic', {session: false}), function(req, res) {
     var query = {};
     if (req.query.to !== undefined) {
         query.to = req.query.to;
@@ -103,13 +107,21 @@ app.get('/messages', jsonParser,function(req, res) {
                message: 'Server Error' 
             });
         }
-        //console.log(messages);
+        var userMessages = []
+        if (messages.length > 0) {
+            for (var i = 0; i < messages.length; i++) {
+                if (messages[i].from.username === state.username) {
+                    userMessages.push(messages[i]);
+                }
+            }
+            return res.status(200).json(userMessages);
+        }
         res.status(200).json(messages);
     });
 });
 
-app.post('/messages', jsonParser, function(req, res) {
-    if (state && req.body.from === state.userId) {
+app.post('/messages', jsonParser, passport.authenticate('basic', {session: false}), function(req, res) {
+    
         if (req.body.text === undefined) {
             return res.status(422).json({
                 message: "Missing field: text"
@@ -122,12 +134,12 @@ app.post('/messages', jsonParser, function(req, res) {
             return res.status(422).json({
                message: "Incorrect field type: to"
             });
-        } else if (typeof state.userId !== 'string') {
+        } else if (typeof req.body.from !== 'string') {
             return res.status(422).json({
                 message: "Incorrect field type: from"
             });
         }
-    
+    if (req.body.from === state.userId) {
         User.find({_id: state.userId}, function(err, user){
             User.find({_id: req.body.to}, function(err, user2){
                 if (user.length === 0 && user) {
@@ -152,13 +164,13 @@ app.post('/messages', jsonParser, function(req, res) {
             });
         });
     } else {
-        return res.status(403).json({
-            message: "Forbidden: You can not send a message as someone else!"
+        return res.status(422).json({
+            message: "Incorrect field value: from"
         });
     }
 });
 
-app.get('/messages/:messageId', function(req, res) {
+app.get('/messages/:messageId', passport.authenticate('basic', {session: false}), function(req, res) {
     Message.findById(req.params.messageId).populate('from to').exec(function(err, message) {
         if (err) {
             return res.status(500).json({
@@ -169,18 +181,25 @@ app.get('/messages/:messageId', function(req, res) {
                 message: "Message not found"
             });
         }
-        res.status(200).json(message);
+        if (message.from.username === state.username) {
+            return res.status(200).json(message);
+        } else {
+            return res.status(401).json({
+                message: "Not Authorized"
+            })
+        }
     });
 });
 
 //User API
-app.get('/users', function(req, res) {
+app.get('/users', passport.authenticate('basic', {session: false}), function(req, res) {
     User.find(function(err, users) {
         if(err) {
             return res.status(500).json({
               message: 'Server Error' 
             });
         }
+        // console.log(users);
         res.status(200).json(users);
     });
 });
@@ -274,6 +293,90 @@ app.post('/users', jsonParser, function (req, res) {
                 username: username,
                 password: hash
             });
+            user.save().then(function(user) {
+                res.location('/users/' + user._id).set('x-myUserId', user._id).status(201).json({});
+            }).catch(function (err) {
+                res.status(500).json({
+                    message: 'Internal server error'
+                });
+            })
+        });
+    });
+
+});
+
+
+
+//  second app.post
+app.post('/users/:userId', jsonParser, function (req, res) {
+    if(!req.body) {
+        return res.status(422).json({
+            message: "Missing field: username"
+        });
+    }
+    
+    if (!('username' in req.body)) {
+        return res.status(422).json({
+            message: 'Missing field: username'
+        });
+    }
+
+    var username = req.body.username;
+
+    if (typeof username !== 'string') {
+        return res.status(422).json({
+            message: 'Incorrect field type: username'
+        });
+    }
+
+    username = username.trim();
+
+    if (username === '') {
+        return res.status(422).json({
+            message: 'Incorrect field length: username'
+        });
+    }
+
+    if (!('password' in req.body)) {
+        return res.status(422).json({
+            message: 'Missing field: password'
+        });
+    }
+
+    var password = req.body.password;
+
+    if (typeof password !== 'string') {
+        return res.status(422).json({
+            message: 'Incorrect field type: password'
+        });
+    }
+
+    password = password.trim();
+
+    if (password === '') {
+        return res.status(422).json({
+            message: 'Incorrect field length: password'
+        });
+    }
+
+    bcrypt.genSalt(10, function(err, salt) {
+        if (err) {
+            return res.status(500).json({
+                message: 'Internal server error'
+            });
+        }
+
+        bcrypt.hash(password, salt, function(err, hash) {
+            if (err) {
+                return res.status(500).json({
+                    message: 'Internal server error'
+                });
+            }
+
+            var user = new User({
+                username: username,
+                password: hash
+            });
 
             user.save(function(err) {
                 if (err) {
@@ -286,24 +389,11 @@ app.post('/users', jsonParser, function (req, res) {
             });
         });
     });
-    // if ((typeof req.body.username) === 'string'){
-    //     User.create({
-    //         username: req.body.username 
-    //     }, function(err, user) {
-    //         if(err) {
-    //             return res.status(500).json({
-    //                 message: 'Server Error'
-    //             });
-    //         }
-    //         res.location('/users/' + user._id);
-    //         res.status(201).json({});
-    //     });
-    // } else {
-    //     res.status(422).json({
-    //         message: "Incorrect field type: username"
-    //     });
-    // }
+
 });
+
+
+
 
 app.put('/users/:userId', jsonParser, function(req, res) {
     if(!req.body.hasOwnProperty('username')) {
@@ -349,5 +439,3 @@ if (require.main === module) {
 };
 exports.app = app;
 exports.runServer = runServer;
-
-

@@ -19,40 +19,66 @@ mongoose.Promise = global.Promise;
 describe('User endpoints', function() {
     beforeEach(function(done) {
         // Clear the database
-        mongoose.connection.db.dropDatabase(done);
+        mongoose.connection.db.dropDatabase(function(err, res) {
+            this.alice = {
+                username: 'alice',
+                password: 'pass',
+                _id: 'aaaaaaaaaaaaaaaaaaaaaaaa'
+            };
+            this.bob = {
+                username: 'bob',
+                password: 'pass',
+                _id: 'bbbbbbbbbbbbbbbbbbbbbbbb'
+            };
+
+            var promiseA = chai.request(app)
+                .post('/users')
+                .send(this.alice);
+            var promiseB = chai.request(app)
+                .post('/users')
+                .send(this.bob);
+             Promise.all([promiseA, promiseB]).then((promises) => {
+                this.alice._id = promises[0].headers["x-myuserid"];
+                this.bob._id = promises[1].headers["x-myuserid"];
+                done();
+            });
+            
+        });
         this.singlePattern = new UrlPattern('/users/:userId');
         this.listPattern = new UrlPattern('/users');
     });
 
     describe('/users', function() {
         describe('GET', function() {
-            it('should return an empty list of users initially', function() {
-                // Get the list of users
-                return chai.request(app)
-                    .get(this.listPattern.stringify())
-                    .then(function(res) {
-                        // Check that it's an empty array
-                        res.should.have.status(200);
-                        res.type.should.equal('application/json');
-                        res.charset.should.equal('utf-8');
-                        res.body.should.be.an('array');
-                        res.body.length.should.equal(0);
-                    });
-            });
+            // it('should return an empty list of users initially', function() {
+            //     // Get the list of users
+            //     mongoose.connection.db.dropDatabase();
+            //     return chai.request(app)
+            //         .get(this.listPattern.stringify())
+            //         .auth("alice", "pass")
+            //         .then(function(res) {
+            //             // Check that it's an empty array
+            //             res.should.have.status(200);
+            //             res.type.should.equal('application/json');
+            //             res.charset.should.equal('utf-8');
+            //             res.body.should.be.an('array');
+            //             res.body.length.should.equal(0);
+            //         });
+            // });
 
             it('should return a list of users', function() {
                 var user = {
                     username: 'joe'
                 };
-
                 // Create a user
-                return new User(user).save()
+                User(user).save()
                     .then(function() {
                         // Get the list of users
                         return chai.request(app)
-                                   .get(this.listPattern.stringify());
+                                   .get(this.listPattern.stringify())
                     }.bind(this))
                     .then(function(res) {
+                       
                         // Check that the array contains a user
                         res.should.have.status(200);
                         res.type.should.equal('application/json');
@@ -71,9 +97,9 @@ describe('User endpoints', function() {
         describe('POST', function() {
             it('should allow adding a user', function() {
                 var user = {
-                    username: 'joe'
+                    username: 'joe',
+                    password: "test"
                 };
-
                 // Add a user
                 return chai.request(app)
                     .post(this.listPattern.stringify())
@@ -180,7 +206,8 @@ describe('User endpoints', function() {
 
             it('should return a single user', function() {
                 var user = {
-                    username: 'joe'
+                    username: 'joe',
+                    password: 'test'
                 };
                 var userId;
                 // Add a user to the database
@@ -212,10 +239,12 @@ describe('User endpoints', function() {
         describe('PUT', function() {
             it('should allow editing a user', function() {
                 var oldUser = {
-                    username: 'joe'
+                    username: 'joe',
+                    password: 'first'
                 };
                 var newUser = {
-                    username: 'joe2'
+                    username: 'joe2',
+                    password: 'second'
                 };
                 var userId;
                 // Add a user to the database
@@ -362,7 +391,8 @@ describe('User endpoints', function() {
             });
             it('should delete a user', function() {
                 var user = {
-                    username: 'joe'
+                    username: 'joe',
+                    password: 'pass'
                 };
                 var userId;
                 // Create a user in the database
